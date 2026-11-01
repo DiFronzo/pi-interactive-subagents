@@ -17,7 +17,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import {
   closeRexSurface,
-  createRexTab,
+  createRexSurface,
   isRexAvailable,
   isRexSurface,
   readRexScreen,
@@ -125,7 +125,7 @@ function rebalanceSurfaces(hintPane?: string): void {
  */
 export function createSurface(name: string): string {
   if (isRexAvailable()) {
-    return createRexTab(name);
+    return createRexSurface(name);
   }
   void name; // tmux panes are not named; the pi process inside shows its own title.
   return createSurfaceSplit(name, "right", process.env.TMUX_PANE);
@@ -140,9 +140,8 @@ export function createSurfaceSplit(
   direction: "left" | "right" | "up" | "down",
   fromSurface?: string,
 ): string {
-  // Rex always opens a new tab: subagents never take over a split of the user's tab.
   if (isRexAvailable()) {
-    return createRexTab(name);
+    return createRexSurface(name);
   }
   void name;
   requireTmux();

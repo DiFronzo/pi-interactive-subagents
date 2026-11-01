@@ -4,11 +4,16 @@ Async subagents for [pi](https://github.com/badlogic/pi-mono), running in tmux p
 
 **tmux-only fork.** See [Acknowledgements](#acknowledgements) for the upstream project, which also supports cmux, zellij, and WezTerm.
 
-## Local change: subagents open Rex tabs
+## Local change: subagents open beside pi in Rex
 
-This copy (`~/Documents/git/pi-interactive-subagents-rex`) adds a [Rex](https://www.superlogical.com/rex) backend. When pi runs in a Rex terminal (`REX_BLOCK` is set and `rex` is on PATH), each subagent opens in its own **tab** in the same Rex session, in the background (`--focus=false`). Tmux is used only when pi is not in Rex.
+This copy (`~/Documents/git/pi-interactive-subagents-rex`) adds a [Rex](https://www.superlogical.com/rex) backend. When pi runs in a Rex terminal (`REX_BLOCK` and `REX_SESSION` are set and `rex` is on PATH), each subagent opens as a **split beside pi in the same Rex tab**, in the background (`--focus=false`), and the row is rebalanced after every spawn and close so the panes stay equal width, like tmux's `even-horizontal`.
 
-- `pi-extension/subagents/rex.ts`: `rex window new --json`, `rex send` / `rex send-key enter`, `rex capture`, `rex block close`.
+- Set `PI_SUBAGENT_REX_LAYOUT=tab` to open each subagent in its own tab instead.
+- If pi's tab is not a plain row (for example pi sits in a stacked split), subagents open as tabs.
+- Set `PI_SUBAGENT_DEBUG=1` to log why a split fell back to a tab.
+- Tmux is used only when pi is not in Rex.
+
+- `pi-extension/subagents/rex.ts`: `rex split` for placement, `rex api call session.view` and `session.resize_pane` for even widths, `rex send` / `rex send-key enter`, `rex capture`, `rex block close`.
 - `pi-extension/subagents/tmux.ts`: every surface primitive dispatches on the id prefix (`block:` = Rex, `%` = tmux).
 - Installed as a local package (`pi install <path>`), not from git, so `pi update` does not overwrite it.
 

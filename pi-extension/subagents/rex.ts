@@ -67,6 +67,107 @@ export function createRexTab(name: string): string {
   return block;
 }
 
+/** Open a block beside the last one in pi's row, so subagents sit side by side like tmux panes. */
+export function createRexSurface(name: string): string {
+  if (process.env.PI_SUBAGENT_REX_LAYOUT === "tab" || !process.env.REX_SESSION || !process.env.REX_BLOCK) {
+    return createRexTab(name);
+  }
+  const pi = process.env.REX_BLOCK;
+  try {
+    const row = findRow(pi);
+    if (!row) {
+      return createRexTab(name);
+    }
+    const last = row.leaves[row.leaves.length - 1];
+    const created = JSON.parse(
+      rex(["split", "-b", last, "--split=right", "--focus=false", "--label", windowLabel(name), "--json"]),
+    ) as { block_ids?: string[] };
+    const block = created.block_ids?.[0];
+    if (!block || !block.startsWith(REX_SURFACE_PREFIX)) {
+      throw new Error(`Unexpected rex split output: ${JSON.stringify(created)}`);
+    }
+    rebalanceRow();
+    return block;
+  } catch (error) {
+    // Layout unknown (pi sits in a stacked or nested split): a tab is always safe.
+    if (process.env.PI_SUBAGENT_DEBUG) {
+      process.stderr.write(`rex split failed, opening a tab instead: ${String(error)}\n`);
+    }
+    return createRexTab(name);
+  }
+}
+
+// ── Layout ──
+
+type LayoutNode = {
+  block_id?: string;
+  split?: { direction: string; before: LayoutNode; after: LayoutNode };
+};
+
+type SessionView = {
+  windows?: Array<{ layers?: Array<{ kind?: string; layout?: LayoutNode; blocks?: Array<{ block_id: string }> }> }>;
+};
+
+function sessionView(): SessionView {
+  return JSON.parse(rex(["api", "call", "-s", process.env.REX_SESSION!, "session.view"])) as SessionView;
+}
+
+/**
+ * The blocks of pi's row, left to right, when the window is a plain row of
+ * side-by-side blocks that contains pi. Null for any other shape.
+ */
+function findRow(pi: string): { leaves: string[] } | null {
+  for (const win of sessionView().windows ?? []) {
+    const layer = (win.layers ?? []).find((l) => l.kind === "tiled" && l.blocks?.some((b) => b.block_id === pi));
+    if (!layer?.layout) continue;
+    let node: LayoutNode | undefined = layer.layout;
+    const leaves: string[] = [];
+    while (node) {
+      if (node.block_id) {
+        leaves.push(node.block_id);
+        break;
+      }
+      const s = node.split;
+      if (!s || s.direction !== "horizontal" || !s.before?.block_id) return null;
+      leaves.push(s.before.block_id);
+      node = s.after;
+    }
+    return leaves.includes(pi) ? { leaves } : null;
+  }
+  return null;
+}
+
+/**
+ * Give every block of pi's row the same width, by setting each border to its
+ * share of the space to its right (border i of n gets 1/(n-i)). Best effort.
+ */
+export function rebalanceRow(): void {
+  const pi = process.env.REX_BLOCK;
+  if (!pi || !process.env.REX_SESSION) return;
+  try {
+    const row = findRow(pi);
+    if (!row) return;
+    const n = row.leaves.length;
+    for (let i = 0; i < n - 1; i++) {
+      rex([
+        "api",
+        "call",
+        "-s",
+        process.env.REX_SESSION,
+        "session.resize_pane",
+        JSON.stringify({
+          direction: "horizontal",
+          before_block_id: row.leaves[i],
+          after_block_id: row.leaves[i + 1],
+          ratio: 1 / (n - i),
+        }),
+      ]);
+    }
+  } catch {
+    // A layout that changed under us is only cosmetic.
+  }
+}
+
 /** Type a command into a block and press Enter. `--` keeps leading dashes literal. */
 export function sendRexCommand(surface: string, command: string): void {
   rex(["send", "-b", surface, "--", command]);
@@ -91,4 +192,6 @@ export async function readRexScreenAsync(surface: string, lines: number): Promis
 /** Close the block. Closing a tab's last block closes the tab too. */
 export function closeRexSurface(surface: string): void {
   rex(["block", "close", surface]);
+  // The freed space goes to the neighbours; even the row out again (best effort).
+  rebalanceRow();
 }
