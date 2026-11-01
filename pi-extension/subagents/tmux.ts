@@ -15,6 +15,15 @@ import { promisify } from "node:util";
 import { existsSync, readFileSync, rmSync, writeFileSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import {
+  closeRexSurface,
+  createRexTab,
+  isRexAvailable,
+  isRexSurface,
+  readRexScreen,
+  readRexScreenAsync,
+  sendRexCommand,
+} from "./rex.ts";
 
 const execFileAsync = promisify(execFile);
 
@@ -47,12 +56,13 @@ export function isTmuxAvailable(): boolean {
   return !!process.env.TMUX && hasCommand("tmux");
 }
 
+/** A Rex terminal (preferred: subagents open as tabs) or a tmux session. */
 export function isMuxAvailable(): boolean {
-  return isTmuxAvailable();
+  return isRexAvailable() || isTmuxAvailable();
 }
 
 export function muxSetupHint(): string {
-  return "Start pi inside tmux (`tmux new -A -s pi 'pi'`).";
+  return "Start pi in a Rex tab, or inside tmux (`tmux new -A -s pi 'pi'`).";
 }
 
 function requireTmux(): void {
@@ -114,6 +124,9 @@ function rebalanceSurfaces(hintPane?: string): void {
  * Returns the new pane id (e.g. `%12`).
  */
 export function createSurface(name: string): string {
+  if (isRexAvailable()) {
+    return createRexTab(name);
+  }
   void name; // tmux panes are not named; the pi process inside shows its own title.
   return createSurfaceSplit(name, "right", process.env.TMUX_PANE);
 }
@@ -127,6 +140,10 @@ export function createSurfaceSplit(
   direction: "left" | "right" | "up" | "down",
   fromSurface?: string,
 ): string {
+  // Rex always opens a new tab: subagents never take over a split of the user's tab.
+  if (isRexAvailable()) {
+    return createRexTab(name);
+  }
   void name;
   requireTmux();
 
@@ -159,6 +176,10 @@ export function createSurfaceSplit(
  * then submitted with Enter.
  */
 export function sendCommand(surface: string, command: string): void {
+  if (isRexSurface(surface)) {
+    sendRexCommand(surface, command);
+    return;
+  }
   requireTmux();
   execFileSync("tmux", ["send-keys", "-t", surface, "-l", command], { encoding: "utf8" });
   execFileSync("tmux", ["send-keys", "-t", surface, "Enter"], { encoding: "utf8" });
@@ -206,6 +227,9 @@ export function sendLongCommand(
  * Read the screen contents of a pane (sync).
  */
 export function readScreen(surface: string, lines = 50): string {
+  if (isRexSurface(surface)) {
+    return readRexScreen(surface, lines);
+  }
   requireTmux();
   return execFileSync(
     "tmux",
@@ -220,6 +244,9 @@ export function readScreen(surface: string, lines = 50): string {
  * Read the screen contents of a pane (async).
  */
 export async function readScreenAsync(surface: string, lines = 50): Promise<string> {
+  if (isRexSurface(surface)) {
+    return readRexScreenAsync(surface, lines);
+  }
   requireTmux();
   const { stdout } = await execFileAsync(
     "tmux",
@@ -233,6 +260,10 @@ export async function readScreenAsync(surface: string, lines = 50): Promise<stri
  * Close a pane.
  */
 export function closeSurface(surface: string): void {
+  if (isRexSurface(surface)) {
+    closeRexSurface(surface);
+    return;
+  }
   requireTmux();
   execFileSync("tmux", ["kill-pane", "-t", surface], { encoding: "utf8" });
   rebalanceSurfaces();

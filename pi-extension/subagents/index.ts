@@ -508,7 +508,7 @@ function muxUnavailableResult() {
     content: [
       {
         type: "text" as const,
-        text: `Subagents require tmux. ${muxSetupHint()}`,
+        text: `Subagents require Rex or tmux. ${muxSetupHint()}`,
       },
     ],
     details: { error: "tmux not available" },
@@ -1008,7 +1008,7 @@ function steerSubagent(
   } catch (error: any) {
     return {
       error:
-        `Failed to deliver message to subagent "${running.name}" via tmux: ` +
+        `Failed to deliver message to subagent "${running.name}": ` +
         `${error?.message ?? String(error)}`,
     };
   }
