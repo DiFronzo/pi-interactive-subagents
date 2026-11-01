@@ -74,13 +74,13 @@ export function createRexSurface(name: string): string {
   }
   const pi = process.env.REX_BLOCK;
   try {
+    // A plain row (pi on the left of horizontal splits) lets the subagent join its right end.
+    // Anything else, such as pi on the left of a stack, still gets a split right beside pi's
+    // own block: the subagent stays in pi's tab and the row is simply not rebalanced.
     const row = findRow(pi);
-    if (!row) {
-      return createRexTab(name);
-    }
-    const last = row.leaves[row.leaves.length - 1];
+    const target = row ? row.leaves[row.leaves.length - 1] : pi;
     const created = JSON.parse(
-      rex(["split", "-b", last, "--split=right", "--focus=false", "--label", windowLabel(name), "--json"]),
+      rex(["split", "-b", target, "--split=right", "--focus=false", "--label", windowLabel(name), "--json"]),
     ) as { block_ids?: string[] };
     const block = created.block_ids?.[0];
     if (!block || !block.startsWith(REX_SURFACE_PREFIX)) {
@@ -89,7 +89,7 @@ export function createRexSurface(name: string): string {
     rebalanceRow();
     return block;
   } catch (error) {
-    // Layout unknown (pi sits in a stacked or nested split): a tab is always safe.
+    // The split itself failed: a tab is always safe.
     if (process.env.PI_SUBAGENT_DEBUG) {
       process.stderr.write(`rex split failed, opening a tab instead: ${String(error)}\n`);
     }

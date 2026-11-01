@@ -9,7 +9,8 @@ Async subagents for [pi](https://github.com/badlogic/pi-mono), running in tmux p
 This copy (`~/Documents/git/pi-interactive-subagents-rex`) adds a [Rex](https://www.superlogical.com/rex) backend. When pi runs in a Rex terminal (`REX_BLOCK` and `REX_SESSION` are set and `rex` is on PATH), each subagent opens as a **split beside pi in the same Rex tab**, in the background (`--focus=false`), and the row is rebalanced after every spawn and close so the panes stay equal width, like tmux's `even-horizontal`.
 
 - Set `PI_SUBAGENT_REX_LAYOUT=tab` to open each subagent in its own tab instead.
-- If pi's tab is not a plain row (for example pi sits in a stacked split), subagents open as tabs.
+- If pi's tab is not a plain row (for example pi sits left of a stack of panes), the subagent splits directly beside pi's own block, so it still stays in the same tab. The row is not rebalanced in that case. Subagents open as a tab only if the split itself fails.
+- Setup for other users: see [docs/rex-setup.md](docs/rex-setup.md).
 - Set `PI_SUBAGENT_DEBUG=1` to log why a split fell back to a tab.
 - Tmux is used only when pi is not in Rex.
 
