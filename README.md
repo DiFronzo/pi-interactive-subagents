@@ -2,7 +2,7 @@
 
 Async subagents for [pi](https://github.com/badlogic/pi-mono), running in tmux panes. Spawn a sub-agent, keep working in the main session, and get the result steered back when it finishes. Fully non-blocking.
 
-**tmux-only fork.** See [Acknowledgements](#acknowledgements) for the upstream project, which also supports cmux, zellij, and WezTerm.
+**tmux and Rex.** Subagents run in tmux panes, or, when pi runs in a [Rex](https://www.superlogical.com/rex) block, beside pi in the same Rex tab. Setup for Rex: [docs/rex-setup.md](docs/rex-setup.md). See [Acknowledgements](#acknowledgements) for the upstream project.
 
 ## How it works
 
